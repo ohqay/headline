@@ -6,7 +6,6 @@
 # To install, source this file from your ~/.zshrc
 # Customization variables begin around line 60
 
-
 # Formatting aliases
 # (add more if you need)
 reset=$'\e[0m'
@@ -16,6 +15,43 @@ italic=$'\e[3m';    no_italic=$'\e[23m'
 underline=$'\e[4m'; no_underline=$'\e[24m'
 invert=$'\e[7m';    no_invert=$'\e[27m'
 # ...
+
+# Function to detect macOS appearance
+detect_macos_theme() {
+  if [[ "$OSTYPE" != "darwin"* ]]; then
+    echo "dark"
+    return
+  fi
+  local appearance=$(defaults read -g AppleInterfaceStyle 2>/dev/null)
+  if [[ "$appearance" == "Dark" ]]; then
+    echo "dark"
+  else
+    echo "light"
+  fi
+}
+
+# Function to set theme colors
+headline-set-theme-colors() {
+  if [[ "$_HL_THEME" == "light" ]]; then
+    muted_fg=$'\e[38;2;201;203;204m' # light mode muted color (#C9CBCC)
+    # Update content colors for better visibility in light mode
+    HL_CONTENT_TEMPLATE[BRANCH]="%{$bold$magenta%}..." # magenta instead of cyan
+    HL_CONTENT_TEMPLATE[STATUS]="%{$bold$red%}..."     # red for better visibility
+  else
+    muted_fg=$'\e[38;2;60;60;73m' # dark mode muted color (#3C3C49)
+    # Restore original dark mode colors
+    HL_CONTENT_TEMPLATE[BRANCH]="%{$bold$cyan%}..."
+    HL_CONTENT_TEMPLATE[STATUS]="%{$bold$magenta%}..."
+  fi
+  # Update styles that use muted_fg
+  HL_BASE_STYLE="%{$muted_fg%}"
+  HL_PROMPT='%{$muted_fg%}%(#.#.%(!.!.$))%{$reset%} '
+  # Force regeneration of the information line to update separator
+  _HL_INFO=''
+}
+
+# Get current theme
+_HL_THEME=$(detect_macos_theme)
 
 # Foreground color aliases
 black=$'\e[30m';   light_black=$'\e[90m'
@@ -27,6 +63,9 @@ magenta=$'\e[35m'; light_magenta=$'\e[95m'
 cyan=$'\e[36m';    light_cyan=$'\e[96m'
 white=$'\e[37m';   light_white=$'\e[97m'
 default_fg=$'\e[39m'
+
+# Dynamic muted_fg based on theme
+muted_fg='' # Will be set by headline-set-theme-colors
 
 # Background color aliases
 black_bg=$'\e[40m';   light_black_bg=$'\e[100m'
@@ -56,14 +95,11 @@ clear_entire_screen=$'\e[2J'
 # Flags
 [ ! -z "$SSH_TTY$SSH_CONNECTION$SSH_CLIENT" ] && IS_SSH='true'
 
-
-
 # ------------------------------------------------------------------------------
 # Customization
 # Use the following variables to customize the theme.
 # If you're setting them in ~/.zshrc, source the theme, THEN set the variables.
 # To insert styles (ANSI SGR codes defined above) use syntax: "%{$style%}"
-
 
 # Style applied to separator line, after other styles
 HL_SEP_STYLE="%{$default_bg%}"
@@ -71,21 +107,25 @@ HL_SEP_STYLE="%{$default_bg%}"
 # Segments of the separator line
 declare -A HL_SEP=(
   _PRE  ''
-  _LINE '_' # repeated char to create separator line, consider '▁'
+  _LINE '▁' # repeated char to create separator line, consider '▁' or '━' or '─'
   _POST ''
 )
 
-
 # Style applied to all segments, before other styles
-HL_BASE_STYLE=""
+HL_BASE_STYLE="%{$muted_fg%}"
 
 # Style of segment layout template
 HL_LAYOUT_STYLE="%{$faint%}"
 
 # Order of segments
 declare -a HL_LAYOUT_ORDER=(
-  _PRE USER HOST VENV PATH _SPACER BRANCH STATUS _POST # ...
+  _PRE USER VENV PATH _SPACER BRANCH STATUS _POST # ...
 )
+
+# Original Order of segments
+# declare -a HL_LAYOUT_ORDER=(
+#  _PRE USER HOST VENV PATH _SPACER BRANCH STATUS _POST # ...
+# )
 
 # Template for each segment's layout
 declare -A HL_LAYOUT_TEMPLATE=(
@@ -112,17 +152,19 @@ declare -A HL_LAYOUT_FIRST=(
 # The character used by _SPACER segment to fill space
 HL_SPACE_CHAR=' '
 
-
 # Template for each segment's content
 declare -A HL_CONTENT_TEMPLATE=(
-  USER   "%{$bold$red%}..." # consider ' ' or ' '
-  HOST   "%{$bold$yellow%}..." # consider '󰇅 ' or ' '
+  USER   "%{$bold$yellow%}..." # consider ' ' or ' '
+  HOST   "%{$bold$red%}..." # consider '󰇅 ' or ' '
   VENV   "%{$bold$green%}..." # consider ' ' or ' '
   PATH   "%{$bold$blue%}..." # consider ' ' or ' '
   BRANCH "%{$bold$cyan%}..." # consider ' ' or ' '
   STATUS "%{$bold$magenta%}..."
   # ...
 )
+
+# Initialize theme colors
+headline-set-theme-colors
 
 # Commands to produce each segment's content
 declare -A HL_CONTENT_SOURCE=(
@@ -134,7 +176,6 @@ declare -A HL_CONTENT_SOURCE=(
   STATUS 'headline-git-status'
   # ...
 )
-
 
 # Show count of each status always, only when greater than one, or don't show
 HL_GIT_COUNT_MODE='off' # on|auto|off
@@ -156,8 +197,8 @@ declare -A HL_GIT_STATUS_SYMBOLS=(
   AHEAD     '↑'
   DIVERGED  '↕'
   STASHED   '*'
-  CONFLICTS '✘' # consider "%{$red%}✘"
-  CLEAN     '' # consider '✓' or "%{$green%}✔"
+  CONFLICTS '%{$red%}✘' # consider "%{$red%}✘"
+  CLEAN     '%{$green%}✓' # consider '✓' or "%{$green%}✔"
 )
 
 
@@ -185,11 +226,11 @@ HL_TRUNC_REMOVAL=2
 
 
 # Prompt
-HL_PROMPT='%(#.#.%(!.!.$)) ' # consider '%#'
+# Original prompt: HL_PROMPT='%(#.#.%(!.!.$)) ' # consider '%#'
+HL_PROMPT='%{$muted_fg%}%(#.#.%(!.!.$))%{$reset%} '
 
 # Right prompt
 HL_RPROMPT=''
-
 
 # Show the clock, or don't show
 HL_CLOCK_MODE='off' # on|off
@@ -200,7 +241,6 @@ HL_CLOCK_TEMPLATE="%{$faint%}..."
 # Command which outputs clock content
 HL_CLOCK_SOURCE='date "+%l:%M:%S %p"' # consider 'date +%+' for full date
 
-
 # Show non-zero exit code, include a guessed meaning too, or don't show
 HL_ERR_MODE='off' # on|detail|off
 
@@ -209,7 +249,6 @@ HL_ERR_TEMPLATE="%{$faint$italic%}→ ..."
 
 # Template for the optional detail
 HL_ERR_DETAIL_TEMPLATE=' (...)'
-
 
 # Print separator and information line with precmd hook or in PROMPT
 HL_PRINT_MODE='precmd' # precmd|prompt
@@ -223,13 +262,10 @@ HL_INFO_MODE='on' # on|auto|off
 # Press <enter> with no commands to overwrite previous prompt
 HL_OVERWRITE='off' # on|off
 
-
 # The string to replace in templates
 HL_TEMPLATE_TOKEN='...'
 
 # ------------------------------------------------------------------------------
-
-
 
 # Output variables
 HL_OUTPUT_SEP='' # printed separator line
@@ -488,6 +524,14 @@ headline-preexec() {
 # Before prompting
 add-zsh-hook precmd headline-precmd
 headline-precmd() {
+  # Check if theme has changed
+  local current_theme=$(detect_macos_theme)
+  if [[ "$current_theme" != "$_HL_THEME" ]]; then
+    _HL_THEME=$current_theme
+    # Update theme colors
+    headline-set-theme-colors
+  fi
+  
   local -i err=$?
   local -i trunc_initial_length=$(( $HL_TRUNC_INITIAL + ${#HL_TRUNC_SYMBOL} ))
   local -i trunc_removal_length=$(( $HL_TRUNC_REMOVAL + ${#HL_TRUNC_SYMBOL} ))
